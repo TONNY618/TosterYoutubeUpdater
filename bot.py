@@ -1,6 +1,7 @@
 import io
 import os
 import re
+import sys
 import feedparser
 import mwclient
 import requests
@@ -9,22 +10,29 @@ from pathvalidate import sanitize_filename
 
 load_dotenv()
 
-WIKI_USER = os.environ.get('WIKI_USER')
-WIKI_PASSWORD = os.environ.get('WIKI_PASSWORD')
+WIKI_USER = os.environ['WIKI_USER']
+WIKI_PASSWORD = os.environ['WIKI_PASSWORD']
 CHANNEL_ID = "UCbRBrPjdAPQh0sdP33MFN7Q"
-TEMPLATE_PAGE_NAME = "Template:LastVideo"
-
 HEADERS = {
 	"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 }
+
+escaped_trans = str.maketrans({
+    '|': '—',
+    '[': '(',
+    ']': ')',
+    '{': '(',
+    '}': ')'
+})
 
 def is_short(video_id: str) -> bool:
 	try:
 		url = f"https://www.youtube.com/shorts/{video_id}"
 		response = requests.head(url, headers=HEADERS, allow_redirects=True, timeout=5)
 		return "/shorts/" in response.url
-	except requests.RequestException:
-		return False
+	except requests.RequestException as e:
+		print(e)
+		sys.exit(1)
 
 def get_thumbnail_bytes(video_id: str):
 	resolutions = ['maxresdefault.jpg', 'sddefault.jpg', 'hqdefault.jpg']
@@ -38,56 +46,69 @@ def get_thumbnail_bytes(video_id: str):
 	return None
 
 def clean_wiki_title(title: str) -> str:
-	title = title.replace('|', '—').replace('[', '(').replace(']', ')')
-	title = re.sub(r'[:#<>{}/\\?*]', '', title)
-	return sanitize_filename(title, max_len=120).strip()
+	title = title.translate(escaped_trans)
+	title = re.sub(pattern=r'[:#<>{}/\\?*]', repl='', string=title)
+	return sanitize_filename(title, max_len=85).strip()
 
 rss_url = f"https://www.youtube.com/feeds/videos.xml?channel_id={CHANNEL_ID}"
-feed = feedparser.parse(rss_url)
+try:
+	response = requests.get(rss_url, timeout=10)
+	response.raise_for_status()
+	feed = feedparser.parse(response.content)
+except requests.exceptions.RequestException as e:
+	print(e)
+	sys.exit(1)
 
 if not feed.entries:
-	exit(0)
+	sys.exit(0)
 
 latest_videos = []
 for entry in feed.entries:
 	v_id = entry.yt_videoid
 	if not is_short(v_id):
 		clean_name = clean_wiki_title(entry.title)
-		escaped_title = entry.title.replace('|', '—').replace('[', '(').replace(']', ')')
+		escaped_title = entry.title.translate(escaped_trans)
 		latest_videos.append({
 			'id': v_id,
 			'filename': f"{clean_name}.jpg",
 			'title': escaped_title
 		})
-	if len(latest_videos) == 3:
+	if len(latest_videos) == 10:
 		break
 
 if not latest_videos:
-	exit(0)
+	sys.exit(0)
 
 site = mwclient.Site('toster.fandom.com', path='/ru/', clients_useragent='YoutubeUpdater/1.0 (https://toster.fandom.com/ru/wiki/User:TONNY618; spdodle@gmail.com)')
+
+template_page = site.pages['Template:LastVideo']
+header_match = re.search(
+	pattern=r'Последнее видео на канале.*?watch\?v=([\w-]+)',
+	string=template_page.text(),
+	flags=re.DOTALL
+)
+
+if (header_match.group(1) if header_match else None) == latest_videos[0]['id']:
+	print(header_match.group(1))
+	sys.exit(0)
+
 site.login(WIKI_USER, WIKI_PASSWORD)
 
-template_page = site.pages[TEMPLATE_PAGE_NAME]
-current_text = template_page.text()
-
-if latest_videos[0]['id'] in current_text:
-	exit(0)
+new_video = latest_videos[0]
 
 gallery_lines = []
-for vid in latest_videos:
+for vid in reversed(latest_videos[:3]):
 	image_page = site.images[vid['filename']]
 	if not image_page.exists:
 		img_data = get_thumbnail_bytes(vid['id'])
 		if img_data:
 			site.upload(
-				file=io.BytesIO(img_data),
+				file=io.BytesIO(img_data), # type: ignore
 				filename=vid['filename'],
 				ignore=True
 			)
-	gallery_lines.append(f"Файл:{vid['filename']}|[https://www.youtube.com/watch?v={vid['id']} {vid['title']}]")
+	gallery_lines.insert(0, f"Файл:{vid['filename']}|[https://www.youtube.com/watch?v={vid['id']} {vid['title']}]")
 
-new_video = latest_videos[0]
 gallery_content = "\n".join(gallery_lines)
 
 template_content = f"""<includeonly>{{|style="width:100%; margin-bottom:10px; border: solid 4px; border-color: #9f7a6a; color:#8e6e5d; background-color: #ffe9d6; text-align:center; overflow:hidden; border-radius: 30px;"
@@ -100,4 +121,10 @@ template_content = f"""<includeonly>{{|style="width:100%; margin-bottom:10px; bo
 Шаблон обновляется ботом
 </noinclude>"""
 
-template_page.save(template_content, summary=f"Новое видео")
+template_page.save(template_content, summary="Новое видео")
+
+if len(latest_videos) > 3:
+	for i in range(3, len(latest_videos)):
+		old_image = site.images[latest_videos[i]['filename']]
+		if old_image.exists:
+			old_image.delete(reason="Ротация превью")
