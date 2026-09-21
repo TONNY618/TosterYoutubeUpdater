@@ -89,7 +89,6 @@ header_match = re.search(
 )
 
 if (header_match.group(1) if header_match else None) == latest_videos[0]['id']:
-	print(header_match.group(1))
 	sys.exit(0)
 
 site.login(WIKI_USER, WIKI_PASSWORD)
