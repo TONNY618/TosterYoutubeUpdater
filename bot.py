@@ -124,8 +124,7 @@ def main():
 	
 	gallery_content = "\n".join(gallery_lines)
 	
-	template_content = f"""
-<includeonly>{{|style="width:100%; margin-bottom:10px; border: solid 4px; border-color: #9f7a6a; color:#8e6e5d; background-color: #ffe9d6; text-align:center; overflow:hidden; border-radius: 30px;"
+	template_content = f"""<includeonly>{{|style="width:100%; margin-bottom:10px; border: solid 4px; border-color: #9f7a6a; color:#8e6e5d; background-color: #ffe9d6; text-align:center; overflow:hidden; border-radius: 30px;"
 |-
 |style="padding-left:10px; padding-right:10px; font-size:200%;" class="main-page-new-episode-box" |Последнее видео на канале Нейро-шоу Тостера:<br /><span style="background:linear-gradient(to right, #c63c28, #812a20); -webkit-background-clip:text !important; -webkit-text-fill-color:transparent;">[https://www.youtube.com/watch?v={new_video['id']} {new_video['title']}]</span>
 |}}
