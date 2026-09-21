@@ -124,7 +124,7 @@ template_content = f"""<includeonly>{{|style="width:100%; margin-bottom:10px; bo
 template_page.save(template_content, summary="Новое видео")
 
 if len(latest_videos) > 3:
-	for i in range(3, len(latest_videos)):
-		old_image = site.images[latest_videos[i]['filename']]
+	for vid in latest_videos[3:]:
+		old_image = site.images[vid['filename']]
 		if old_image.exists:
 			old_image.delete(reason="Ротация превью")
