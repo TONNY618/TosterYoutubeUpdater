@@ -31,12 +31,12 @@ def is_short(video_id: str, max_retries: int = 3, backoff_factor: float = 1.5) -
 	
 	for attempt in range(max_retries):
 		try:
-			response = requests.head(url, headers=HEADERS, allow_redirects=True, timeout=5)
+			response = requests.get(url, headers=HEADERS, allow_redirects=True, timeout=5, stream=True)
 			
-			if response.status_code == 200:
+			if response.ok:
 				return "/shorts/" in response.url
 			
-			if response.status_code in (429, 500, 502, 503, 504):
+			if response.status_code == 429 or response.status_code >= 500:
 				time.sleep(backoff_factor * (2 ** attempt))
 				continue
 			
@@ -74,10 +74,9 @@ def fetch_youtube_feed(max_retries: int = 3, backoff_factor: float = 1.5):
 			try:
 				feed_response = requests.get(url, headers=HEADERS, timeout=10)
 				feed_response.raise_for_status()
-				if feed_response.status_code == 200:
-					feed = feedparser.parse(feed_response.content)
-					if feed.entries:
-						return feed
+				feed = feedparser.parse(feed_response.content)
+				if feed.entries:
+					return feed
 			except requests.RequestException:
 				pass
 		
