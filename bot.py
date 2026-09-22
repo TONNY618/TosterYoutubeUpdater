@@ -31,16 +31,15 @@ def is_short(video_id: str, max_retries: int = 3, backoff_factor: float = 1.5) -
 	
 	for attempt in range(max_retries):
 		try:
-			response = requests.get(url, headers=HEADERS, allow_redirects=True, timeout=5, stream=True)
-			
-			if response.ok:
-				return "/shorts/" in response.url
-			
-			if response.status_code == 429 or response.status_code >= 500:
-				time.sleep(backoff_factor * (2 ** attempt))
-				continue
-			
-			raise RuntimeError(f"HTTP {response.status_code}")
+			with requests.get(url, headers=HEADERS, allow_redirects=True, timeout=5, stream=True) as response:
+				if response.ok:
+					return "/shorts/" in response.url
+				
+				if response.status_code == 429 or response.status_code >= 500:
+					time.sleep(backoff_factor * (2 ** attempt))
+					continue
+				
+				raise RuntimeError(f"HTTP {response.status_code}")
 		except requests.RequestException as e:
 			last_error = e
 			time.sleep(backoff_factor * (2 ** attempt))
