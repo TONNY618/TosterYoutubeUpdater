@@ -15,6 +15,7 @@ load_dotenv()
 WIKI_USER = os.environ['WIKI_USER']
 WIKI_PASSWORD = os.environ['WIKI_PASSWORD']
 CHANNEL_ID = "UCbRBrPjdAPQh0sdP33MFN7Q"
+PLAYLIST_ID = "UU" + CHANNEL_ID[2:] if CHANNEL_ID.startswith("UC") else CHANNEL_ID
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 WIKI_CHAR_MAP = str.maketrans({
 	'|': '—',
@@ -62,16 +63,32 @@ def clean_wiki_title(title: str) -> str:
 	title = re.sub(pattern=r'[:#<>{}/\\?*]', repl='', string=title)
 	return sanitize_filename(title, max_len=85).strip()
 
-def main():
-	rss_url = f"https://www.youtube.com/feeds/videos.xml?channel_id={CHANNEL_ID}"
-	try:
-		feed_response = requests.get(rss_url, timeout=10)
-		feed_response.raise_for_status()
-		feed = feedparser.parse(feed_response.content)
-	except requests.exceptions.RequestException as e:
-		sys.exit(f"::error title=API Request Error::{e}")
+def fetch_youtube_feed(max_retries: int = 3, backoff_factor: float = 1.5):
+	rss_urls = [
+		f"https://www.youtube.com/feeds/videos.xml?playlist_id={PLAYLIST_ID}",
+		f"https://www.youtube.com/feeds/videos.xml?channel_id={CHANNEL_ID}",
+	]
 	
-	if not feed.entries:
+	for attempt in range(max_retries):
+		for url in rss_urls:
+			try:
+				feed_response = requests.get(url, headers=HEADERS, timeout=10)
+				feed_response.raise_for_status()
+				if feed_response.status_code == 200:
+					feed = feedparser.parse(feed_response.content)
+					if feed.entries:
+						return feed
+			except requests.RequestException:
+				pass
+		
+		time.sleep(backoff_factor * (2 ** attempt))
+	
+	return None
+
+def main():
+	feed = fetch_youtube_feed()
+	if not feed:
+		print("::warning title=YouTube Feed Unavailable::Failed to fetch RSS feed (YouTube returned 404/error). Skipping iteration.")
 		sys.exit(0)
 	
 	latest_videos = []
@@ -132,8 +149,7 @@ def main():
 {gallery_content}
 </gallery></includeonly><noinclude>
 Шаблон обновляется ботом
-</noinclude>
-"""
+</noinclude>"""
 	
 	template_page.save(template_content, summary="Новое видео")
 	
