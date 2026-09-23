@@ -98,7 +98,7 @@ def main():
 				escaped_title = entry.title.translate(WIKI_CHAR_MAP)
 				latest_videos.append({
 					'id': video_id,
-					'filename': f"{safe_name}_{video_id}.jpg" if safe_name else f"{video_id}.jpg",
+					'filename': f"{safe_name} {video_id}.jpg" if safe_name else f"{video_id}.jpg",
 					'title': escaped_title
 				})
 			if len(latest_videos) == 10:
