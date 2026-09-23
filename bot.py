@@ -8,7 +8,6 @@ import feedparser
 import mwclient
 import requests
 from dotenv import load_dotenv
-from pathvalidate import sanitize_filename
 
 load_dotenv()
 
@@ -57,11 +56,6 @@ def get_thumbnail_bytes(video_id: str):
 			continue
 	return None
 
-def clean_wiki_title(title: str) -> str:
-	title = title.translate(WIKI_CHAR_MAP)
-	title = re.sub(pattern=r'[:#<>{}/\\?*]', repl='', string=title)
-	return sanitize_filename(title, max_len=85).strip()
-
 def fetch_youtube_feed(max_retries: int = 3, backoff_factor: float = 1.5):
 	rss_urls = [
 		f"https://www.youtube.com/feeds/videos.xml?playlist_id={PLAYLIST_ID}",
@@ -94,11 +88,10 @@ def main():
 		for entry in feed.entries:
 			video_id = entry.yt_videoid
 			if not is_short(video_id):
-				safe_name = clean_wiki_title(entry.title)
 				escaped_title = entry.title.translate(WIKI_CHAR_MAP)
 				latest_videos.append({
 					'id': video_id,
-					'filename': f"{safe_name} {video_id}.jpg" if safe_name else f"{video_id}.jpg",
+					'filename': f"{video_id}.jpg",
 					'title': escaped_title
 				})
 			if len(latest_videos) == 10:
