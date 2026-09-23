@@ -145,8 +145,19 @@ def main():
 |}}
 <gallery type="slider" orientation="bottom">
 {gallery_content}
-</gallery></includeonly><noinclude>
-Шаблон обновляется ботом
+</gallery></includeonly><noinclude>__NOTOC__
+== Внимание! ==
+Этот шаблон генерируется и обновляется автоматически [https://github.com/TONNY618/TosterYoutubeUpdater ботом.]<br>
+Любые ручные изменения будут перезаписаны при следующем обновлении.
+
+== Использование ==
+Показывает на [[Тостер Вики|главной странице]] последнее видео и галерею превью последних 3 видео.
+
+=== Правила заполнения ===
+Достаточно написать только <nowiki>{{{{LastVideo}}}}</nowiki> на необходимой строчке на странице.
+
+== Предпросмотр ==
+{{{{LastVideo}}}}
 </noinclude>"""
 	
 	template_page.save(template_content, summary="Новое видео")
